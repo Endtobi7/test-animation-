@@ -20,28 +20,35 @@ const BASE = {
 };
 
 const LAYOUT = {
-  railTopY: BASE.y + 80,
-  railBottomY: BASE.y + 350,
+  railTopY: BASE.y + 90,
+  railBottomY: BASE.y + 340,
   carriage: {
-    width: 210,
-    height: 160,
-    src: `${IMAGE_BASE}/part3.PNG`,
+    width: 230,
+    height: 170,
+    src: `${IMAGE_BASE}/part%202.PNG`,
   },
   tool: {
-    width: 150,
-    height: 150,
+    width: 190,
+    height: 170,
+    src: `${IMAGE_BASE}/part3.PNG`,
+  },
+  zAxis: {
+    width: 140,
+    height: 140,
     src: `${IMAGE_BASE}/part4.PNG`,
+    offsetX: 38,
+    offsetY: 40,
   },
 };
 
 const LIMITS = {
   x: {
     min: BASE.x + 60,
-    max: BASE.x + BASE.width - 240,
+    max: BASE.x + BASE.width - 250,
   },
   y: {
     min: BASE.y + 90,
-    max: BASE.y + BASE.height - 240,
+    max: BASE.y + BASE.height - 260,
   },
   z: {
     min: 0,
@@ -122,8 +129,13 @@ export default function App() {
   };
 
   const tool = {
-    x: motion.x + 30,
+    x: motion.x + 26,
     y: motion.y,
+  };
+
+  const zAxis = {
+    x: tool.x + LAYOUT.zAxis.offsetX,
+    y: tool.y + LAYOUT.zAxis.offsetY - zOffset,
   };
 
   const trailPath = trail.map((point) => `${point[0]} ${point[1]}`).join(" ");
@@ -134,9 +146,9 @@ export default function App() {
         <div>
           <h1>Interactive H-Bot Cartesian Assembly</h1>
           <p>
-            The frame is fixed. Motors drive the belt system: same direction =
-            X motion, opposite direction = Y motion, different speeds =
-            diagonal. Adjust the motors and Z axis to explore the constraints.
+            The red frame is fixed. Motors drive the belt system: same direction
+            = X motion, opposite direction = Y motion, different speeds =
+            diagonal. The Z axis module moves vertically on the tool head.
           </p>
         </div>
         <div className="hero-actions">
@@ -182,7 +194,7 @@ export default function App() {
             className="belt belt-top"
             style={{
               left: BASE.x + 40,
-              top: LAYOUT.railTopY + 20,
+              top: LAYOUT.railTopY + 22,
               width: BASE.width - 80,
             }}
           />
@@ -190,7 +202,7 @@ export default function App() {
             className="belt belt-bottom"
             style={{
               left: BASE.x + 40,
-              top: LAYOUT.railBottomY + 20,
+              top: LAYOUT.railBottomY + 22,
               width: BASE.width - 80,
             }}
           />
@@ -222,12 +234,21 @@ export default function App() {
             style={{
               width: LAYOUT.tool.width,
               height: LAYOUT.tool.height,
-              transform: `translate3d(${tool.x}px, ${
-                tool.y - zOffset
-              }px, 0)`,
+              transform: `translate3d(${tool.x}px, ${tool.y}px, 0)`,
             }}
           >
             <img src={LAYOUT.tool.src} alt="Tool head" />
+          </div>
+
+          <div
+            className="part z-axis"
+            style={{
+              width: LAYOUT.zAxis.width,
+              height: LAYOUT.zAxis.height,
+              transform: `translate3d(${zAxis.x}px, ${zAxis.y}px, 0)`,
+            }}
+          >
+            <img src={LAYOUT.zAxis.src} alt="Z axis" />
             <span className="z-label">Z {Math.round(zOffset)} mm</span>
           </div>
         </div>
