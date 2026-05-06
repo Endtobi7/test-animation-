@@ -7,67 +7,101 @@ const IMAGE_BASE =
 const CANVAS = {
   width: 980,
   height: 620,
-  padding: 18,
 };
 
-const INITIAL_PARTS = [
-  {
-    id: "part0",
-    name: "Base Rail",
-    src: `${IMAGE_BASE}/part%200.PNG`,
-    width: 820,
-    height: 520,
-    x: 80,
-    y: 60,
-  },
-  {
-    id: "part2",
-    name: "Upper Rail",
+const BASE = {
+  id: "base",
+  name: "Fixed Frame",
+  src: `${IMAGE_BASE}/part%200.PNG`,
+  width: 860,
+  height: 520,
+  x: 60,
+  y: 60,
+  fixed: true,
+};
+
+const LAYOUT = {
+  gantry: {
+    id: "gantry",
+    name: "Moving Gantry (Y)",
     src: `${IMAGE_BASE}/part%202.PNG`,
     width: 760,
-    height: 140,
+    height: 150,
     x: 110,
-    y: 80,
   },
-  {
-    id: "part3",
-    name: "Carriage",
+  carriage: {
+    id: "carriage",
+    name: "Carriage (X)",
     src: `${IMAGE_BASE}/part3.PNG`,
-    width: 260,
-    height: 200,
-    x: 360,
-    y: 250,
+    width: 250,
+    height: 185,
+    offsetY: 110,
   },
-  {
-    id: "part4",
-    name: "Tool Head",
+  tool: {
+    id: "tool",
+    name: "Tool Head (XY)",
     src: `${IMAGE_BASE}/part4.PNG`,
     width: 160,
     height: 160,
-    x: 410,
-    y: 320,
+    offsetX: 52,
+    offsetY: 215,
   },
-];
+};
+
+const MARGIN = 26;
+
+const LIMITS = {
+  gantryY: {
+    min: BASE.y + MARGIN,
+    max:
+      BASE.y +
+      BASE.height -
+      LAYOUT.tool.offsetY -
+      LAYOUT.tool.height -
+      MARGIN,
+  },
+  carriageX: {
+    min: BASE.x + MARGIN,
+    max:
+      BASE.x +
+      BASE.width -
+      LAYOUT.tool.offsetX -
+      LAYOUT.tool.width -
+      MARGIN,
+  },
+};
+
+const INITIAL_MOTION = {
+  gantryY: BASE.y + 90,
+  carriageX: BASE.x + 260,
+};
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-const clampPosition = (part, position) => {
-  const minX = CANVAS.padding;
-  const minY = CANVAS.padding;
-  const maxX = CANVAS.width - part.width - CANVAS.padding;
-  const maxY = CANVAS.height - part.height - CANVAS.padding;
-
-  return {
-    x: clamp(position.x, minX, maxX),
-    y: clamp(position.y, minY, maxY),
-  };
-};
-
 export default function App() {
-  const [parts, setParts] = useState(INITIAL_PARTS);
-  const [activeId, setActiveId] = useState(null);
-  const [pointerOffset, setPointerOffset] = useState({ x: 0, y: 0 });
+  const [motion, setMotion] = useState(INITIAL_MOTION);
+  const [active, setActive] = useState(null);
   const containerRef = useRef(null);
+
+  const parts = useMemo(() => {
+    const gantry = {
+      ...LAYOUT.gantry,
+      x: LAYOUT.gantry.x,
+      y: motion.gantryY,
+    };
+    const carriage = {
+      ...LAYOUT.carriage,
+      x: motion.carriageX,
+      y: motion.gantryY + LAYOUT.carriage.offsetY,
+    };
+    const tool = {
+      ...LAYOUT.tool,
+      x: motion.carriageX + LAYOUT.tool.offsetX,
+      y: motion.gantryY + LAYOUT.tool.offsetY,
+    };
+
+    return [BASE, gantry, carriage, tool];
+  }, [motion]);
 
   const partMap = useMemo(
     () => new Map(parts.map((part) => [part.id, part])),
@@ -76,25 +110,53 @@ export default function App() {
 
   useEffect(() => {
     const handlePointerMove = (event) => {
-      if (!activeId || !containerRef.current) return;
+      if (!active || !containerRef.current) return;
 
       const rect = containerRef.current.getBoundingClientRect();
-      const next = {
-        x: event.clientX - rect.left - pointerOffset.x,
-        y: event.clientY - rect.top - pointerOffset.y,
+      const pointer = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
       };
 
-      setParts((current) =>
-        current.map((part) => {
-          if (part.id !== activeId) return part;
-          const clamped = clampPosition(part, next);
-          return { ...part, x: clamped.x, y: clamped.y };
-        })
-      );
+      if (active.id === "gantry") {
+        const nextY = clamp(
+          pointer.y - active.offsetY,
+          LIMITS.gantryY.min,
+          LIMITS.gantryY.max
+        );
+        setMotion((current) => ({ ...current, gantryY: nextY }));
+        return;
+      }
+
+      if (active.id === "carriage") {
+        const nextX = clamp(
+          pointer.x - active.offsetX,
+          LIMITS.carriageX.min,
+          LIMITS.carriageX.max
+        );
+        setMotion((current) => ({ ...current, carriageX: nextX }));
+        return;
+      }
+
+      if (active.id === "tool") {
+        const toolX = pointer.x - active.offsetX;
+        const toolY = pointer.y - active.offsetY;
+        const nextCarriageX = clamp(
+          toolX - LAYOUT.tool.offsetX,
+          LIMITS.carriageX.min,
+          LIMITS.carriageX.max
+        );
+        const nextGantryY = clamp(
+          toolY - LAYOUT.tool.offsetY,
+          LIMITS.gantryY.min,
+          LIMITS.gantryY.max
+        );
+        setMotion({ carriageX: nextCarriageX, gantryY: nextGantryY });
+      }
     };
 
     const handlePointerUp = () => {
-      setActiveId(null);
+      setActive(null);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -104,23 +166,27 @@ export default function App() {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [activeId, pointerOffset]);
+  }, [active]);
 
   const handlePointerDown = (event, partId) => {
     const part = partMap.get(partId);
-    if (!part) return;
+    if (!part || part.fixed) return;
 
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setActiveId(partId);
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    setPointerOffset({
+    const rect = containerRef.current.getBoundingClientRect();
+    const pointer = {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
+    };
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setActive({
+      id: partId,
+      offsetX: pointer.x - part.x,
+      offsetY: pointer.y - part.y,
     });
   };
 
-  const resetParts = () => setParts(INITIAL_PARTS);
+  const resetMotion = () => setMotion(INITIAL_MOTION);
 
   return (
     <div className="app">
@@ -128,12 +194,13 @@ export default function App() {
         <div>
           <h1>Interactive H-Bot Cartesian Assembly</h1>
           <p>
-            Drag each part to explore the H-bot layout. Movement is constrained
-            to keep the assembly inside the frame for a smooth, realistic feel.
+            The red frame is fixed. Drag the gantry to move on Y, drag the
+            carriage to move on X, or drag the tool head for full XY motion with
+            realistic mechanical limits.
           </p>
         </div>
-        <button className="reset" onClick={resetParts}>
-          Reset positions
+        <button className="reset" onClick={resetMotion}>
+          Reset position
         </button>
       </header>
 
@@ -151,7 +218,9 @@ export default function App() {
           {parts.map((part) => (
             <div
               key={part.id}
-              className={`part ${activeId === part.id ? "dragging" : ""}`}
+              className={`part ${part.fixed ? "fixed" : ""} ${
+                active?.id === part.id ? "dragging" : ""
+              }`}
               style={{
                 width: part.width,
                 height: part.height,
@@ -166,11 +235,13 @@ export default function App() {
         </div>
         <div className="limits">
           <div>
-            <strong>Limits:</strong> X [{CANVAS.padding}…{CANVAS.width -
-              CANVAS.padding}
-            ] px, Y [{CANVAS.padding}…{CANVAS.height - CANVAS.padding}] px
+            <strong>Travel limits:</strong> X {Math.round(
+              LIMITS.carriageX.min
+            )}–{Math.round(LIMITS.carriageX.max)} px, Y {Math.round(
+              LIMITS.gantryY.min
+            )}–{Math.round(LIMITS.gantryY.max)} px
           </div>
-          <div>Active part: {activeId ?? "None"}</div>
+          <div>Active: {active?.id ?? "None"}</div>
         </div>
       </section>
     </div>

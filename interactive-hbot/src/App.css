@@ -62,7 +62,7 @@
   height: 620px;
   border-radius: 16px;
   overflow: hidden;
-  background: linear-gradient(135deg, #eef2f7, #fafbfc);
+  background: radial-gradient(circle at top, #f1f5f9, #e5eaf1);
   border: 1px solid #e3e8f0;
   touch-action: none;
   user-select: none;
@@ -74,7 +74,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.28;
+  opacity: 0.22;
   pointer-events: none;
 }
 
@@ -91,6 +91,11 @@
   cursor: grabbing;
   transition: none;
   z-index: 5;
+}
+
+.part.fixed {
+  cursor: default;
+  filter: drop-shadow(0 12px 20px rgba(15, 23, 42, 0.18));
 }
 
 .part img {
